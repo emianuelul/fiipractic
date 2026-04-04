@@ -37,3 +37,4 @@ postgres_data
 .mvn
 .gitattributes
 rabbitmq_data
+.env
