@@ -37,4 +37,5 @@ postgres_data
 .mvn
 .gitattributes
 rabbitmq_data
+logbull-data
 .env

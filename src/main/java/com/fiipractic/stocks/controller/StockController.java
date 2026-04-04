@@ -16,6 +16,12 @@ import java.util.List;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
+
+import java.util.Map;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/stocks")
@@ -58,17 +64,31 @@ public class StockController {
     }
 
     @PostMapping("/{symbol}/refresh")
-    public ResponseEntity<PriceRefreshResponseDTO> refreshPrice(
+    public ResponseEntity<Map<String, String>> refreshPrice(
             @AuthenticationPrincipal Jwt jwt,
             @PathVariable String symbol) {
+        String userId = jwt.getSubject();
+        String correlationId = UUID.randomUUID().toString();
 
-        priceRefreshPublisher.publishRefresh(symbol, jwt.getSubject());
+        // Log with structured fields using MDC
+        try {
+            MDC.put("action", "refresh_requested");
+            MDC.put("symbol", symbol.toUpperCase());
+            MDC.put("userId", userId);
+            MDC.put("correlationId", correlationId);
+            log.info("Price refresh requested for {}", symbol.toUpperCase());
+        } finally {
+            MDC.clear();  // Always clear to prevent field leakage
+        }
+
+        priceRefreshPublisher.publishRefresh(symbol, userId, correlationId);
 
         return ResponseEntity.accepted()
-                .body(new PriceRefreshResponseDTO(
-                        "QUEUED",
-                        symbol.toUpperCase(),
-                        "Price refresh request queued"
+                .body(Map.of(
+                        "status", "QUEUED",
+                        "symbol", symbol.toUpperCase(),
+                        "message", "Price refresh request queued",
+                        "correlationId", correlationId
                 ));
     }
 
@@ -77,7 +97,10 @@ public class StockController {
     public ResponseEntity<PriceRefreshResponseDTO> refreshAllPrices(
             @AuthenticationPrincipal Jwt jwt) {
 
-        priceRefreshPublisher.publishRefreshAll(jwt.getSubject());
+        String correlationId = UUID.randomUUID().toString();
+
+
+        priceRefreshPublisher.publishRefreshAll(jwt.getSubject(), correlationId);
 
         return ResponseEntity.accepted()
                 .body(new PriceRefreshResponseDTO(

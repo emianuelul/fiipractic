@@ -13,6 +13,7 @@ import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.amqp.support.AmqpHeaders;
 import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.stereotype.Component;
+import org.slf4j.MDC;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -41,6 +42,23 @@ public class PriceRefreshConsumer {
             PriceRefreshMessage message,
             Channel channel,
             @Header(AmqpHeaders.DELIVERY_TAG) long deliveryTag) throws IOException, InterruptedException {
+        String correlationId = message.correlationId();
+        log.info("[CONSUMER] Processing [{}] requested by [{}] - correlationId: {} - thread: {}",
+                message.symbol(), message.requestedBy(), correlationId,
+                Thread.currentThread().getName());
+
+        try {
+            MDC.put("action", "price_processing_started");
+            MDC.put("symbol", message.symbol());
+            MDC.put("requestedBy", message.requestedBy());
+            MDC.put("correlationId", correlationId);
+            log.info("Started processing price refresh for {}", message.symbol());
+        } finally {
+            MDC.clear();
+        }
+
+        long startTime = System.currentTimeMillis();
+
         try {
             // 1.
             log.info("Symbol: {}, Requested By: {}, Current Thread Name: {}",
@@ -65,10 +83,54 @@ public class PriceRefreshConsumer {
             // 7.
             log.info("Successfully Refreshed " + message.symbol() + " Stock " + "Price");
 
+            long durationMs = System.currentTimeMillis() - startTime;
             // 8.
             channel.basicAck(deliveryTag, false);
+
+            int downtimeMS = 3000;
+
+            try {
+                MDC.put("action", "price_stored");
+                MDC.put("symbol", message.symbol());
+                MDC.put("price", price.toString());
+                MDC.put("durationMs", String.valueOf(durationMs));
+                MDC.put("requestedBy", message.requestedBy());
+                MDC.put("correlationId", correlationId);
+                log.info("Price updated for {}: ${}", message.symbol(), price);
+            } finally {
+                MDC.clear();
+            }
+
+            if (durationMs > downtimeMS) {
+                try {
+                    MDC.put("action", "slow_api_call");
+                    MDC.put("symbol", message.symbol());
+                    MDC.put("durationMs", String.valueOf(durationMs));
+                    MDC.put("thresholdMs", String.valueOf(downtimeMS));
+                    MDC.put("correlationId", correlationId);
+                    log.warn("Slow API call for {} took {}ms", message.symbol(), durationMs);
+                } finally {
+                    MDC.clear();
+                }
+            }
+
         } catch (Exception e) {
-            log.error("[CONSUMER] ❌ Failed to fetch price for [{}]: {}", message.symbol(), e.getMessage());
+            long durationMs = System.currentTimeMillis() - startTime;
+
+            // Log error with MDC
+            try {
+                MDC.put("action", "price_fetch_failed");
+                MDC.put("symbol", message.symbol());
+                MDC.put("error", e.getMessage());
+                MDC.put("errorType", e.getClass().getSimpleName());
+                MDC.put("durationMs", String.valueOf(durationMs));
+                MDC.put("requestedBy", message.requestedBy());
+                MDC.put("correlationId", correlationId);
+                log.error("Failed to fetch price for {}", message.symbol(), e);
+            } finally {
+                MDC.clear();
+            }
+
             channel.basicNack(deliveryTag, false, false);
         }
     }
