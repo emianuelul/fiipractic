@@ -9,6 +9,9 @@ import com.fiipractic.stocks.model.Stock;
 import com.fiipractic.stocks.repository.PortfolioHoldingRepository;
 import com.fiipractic.stocks.repository.PortfolioRepository;
 
+import org.slf4j.MDC;
+import org.slf4j.LoggerFactory;
+import org.slf4j.Logger;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,6 +32,8 @@ public class PortfolioService {
     private final StockService stockService;
     private final PriceRefreshPublisher priceRefreshPublisher;
 
+    private static final Logger log = LoggerFactory.getLogger(PortfolioService.class);
+
     public PortfolioService(PortfolioRepository portfolioRepository,
                             PortfolioHoldingRepository portfolioHoldingRepository,
                             StockService stockService,
@@ -47,7 +52,20 @@ public class PortfolioService {
                 .holdings(new ArrayList<>())
                 .userId(userId)
                 .build();
-        return toDTO(portfolioRepository.save(portfolio));
+
+        portfolio = portfolioRepository.save(portfolio);
+
+        try {
+            MDC.put("action", "portfolio_created");
+            MDC.put("userId", userId);
+            MDC.put("portfolioId", String.valueOf(portfolio.getId()));
+            MDC.put("portfolioName", portfolio.getName());
+            log.info("Created portfolio with ID: {} and Name: {} for user with ID: {}", portfolio.getId(), portfolio.getName(), userId);
+        } finally {
+            MDC.clear();
+        }
+
+        return toDTO(portfolio);
     }
 
     @Transactional(readOnly = true)
@@ -86,7 +104,7 @@ public class PortfolioService {
         return toDTO(portfolio);
     }
 
-    public RefreshResponseDTO refreshPortfolioPrices(String userId, Long portfolioId) {
+    public RefreshResponseDTO refreshPortfolioPrices(String userId, Long portfolioId, String correlationId) {
         Portfolio portfolio = portfolioRepository.findById(portfolioId)
                 .filter(p -> p.getUserId().equals(userId))
                 .orElseThrow(() -> new UserNotOwnerOfPortfolioException("Portfolio not found or access denied"));
@@ -98,7 +116,6 @@ public class PortfolioService {
                 .toList();
 
         symbols.forEach(symbol -> {
-            String correlationId = UUID.randomUUID().toString();
             priceRefreshPublisher.publishRefresh(symbol, userId, correlationId);
         });
 

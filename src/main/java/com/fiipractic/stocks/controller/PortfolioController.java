@@ -5,6 +5,9 @@ import com.fiipractic.stocks.service.PortfolioService;
 
 import jakarta.validation.Valid;
 
+import org.slf4j.MDC;
+import org.slf4j.LoggerFactory;
+import org.slf4j.Logger;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -12,13 +15,16 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
+
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/portfolios")
 public class PortfolioController {
 
     private final PortfolioService portfolioService;
+    private static final Logger log = LoggerFactory.getLogger(PortfolioController.class);
 
     public PortfolioController(PortfolioService portfolioService) {
         this.portfolioService = portfolioService;
@@ -57,8 +63,20 @@ public class PortfolioController {
     public ResponseEntity<RefreshResponseDTO> refreshPortfolioPrices(
             @AuthenticationPrincipal Jwt jwt,
             @PathVariable Long portfolioId) {
+        String correlationId = UUID.randomUUID().toString();
+
+        try {
+            MDC.put("action", "portfolio_refresh_requested");
+            MDC.put("portfolioId", String.valueOf(portfolioId));
+            MDC.put("userId", jwt.getSubject());
+            MDC.put("correlationId", correlationId);
+            log.info("Requested portfolio refresh for portfolio with ID: {}", portfolioId);
+        } finally {
+            MDC.clear();
+        }
+
         return ResponseEntity.ok(
-                portfolioService.refreshPortfolioPrices(jwt.getSubject(), portfolioId)
+                portfolioService.refreshPortfolioPrices(jwt.getSubject(), portfolioId, correlationId)
         );
     }
 
