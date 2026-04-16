@@ -36,7 +36,7 @@ alphavantage:
 
 logbull:
   enabled: true
-  project-id: 2130a449-4b81-4bcf-b7c5-0d4c892aff2a
+  project-id: 719af1df-68d1-4a73-bb93-f3c2bcff80e5
   log-level: INFO
   host: http://localhost:4005
   api-key: ${LOGBULL_API_KEY}

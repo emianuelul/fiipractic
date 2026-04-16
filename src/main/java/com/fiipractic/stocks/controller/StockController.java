@@ -99,7 +99,6 @@ public class StockController {
 
         String correlationId = UUID.randomUUID().toString();
 
-
         priceRefreshPublisher.publishRefreshAll(jwt.getSubject(), correlationId);
 
         return ResponseEntity.accepted()
