@@ -34,8 +34,20 @@ public class PortfolioController {
     public ResponseEntity<PortfolioDTO> createPortfolio(
             @AuthenticationPrincipal Jwt jwt,
             @Valid @RequestBody CreatePortfolioRequest request) {
+        String correlationId = UUID.randomUUID().toString();
+
+        try {
+            MDC.put("action", "create_portfolio_request");
+            MDC.put("name", request.getName());
+            MDC.put("userId", jwt.getSubject());
+            MDC.put("correlationId", correlationId);
+            log.info("Requested portfolio creation for user with ID: {}", jwt.getSubject());
+        } finally {
+            MDC.clear();
+        }
+
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(portfolioService.createPortfolio(jwt.getSubject(), request));
+                .body(portfolioService.createPortfolio(jwt.getSubject(), request, correlationId));
     }
 
     @GetMapping("/my")
@@ -50,7 +62,20 @@ public class PortfolioController {
             @AuthenticationPrincipal Jwt jwt,
             @PathVariable Long portfolioId,
             @Valid @RequestBody BuyStockRequest request) {
-        return ResponseEntity.ok(portfolioService.buyStock(jwt.getSubject(), portfolioId, request));
+        String correlationId = UUID.randomUUID().toString();
+
+        try {
+            MDC.put("action", "buy_stock_requested");
+            MDC.put("portfolioId", String.valueOf(portfolioId));
+            MDC.put("userId", jwt.getSubject());
+            MDC.put("symbol", request.getSymbol());
+            MDC.put("correlationId", correlationId);
+            log.info("Requested stock (symbol: {}) acquisition for portfolio ID: {}", request.getSymbol(), portfolioId);
+        } finally {
+            MDC.clear();
+        }
+
+        return ResponseEntity.ok(portfolioService.buyStock(jwt.getSubject(), portfolioId, request, correlationId));
     }
 
     @GetMapping("/all")

@@ -22,6 +22,17 @@ public class Stock {
     @Column(name = "last_price_update")
     private LocalDateTime lastPriceUpdate;
 
+    @Column(name = "is_valid")
+    private boolean isValid = true;
+
+    public boolean isValid() {
+        return isValid;
+    }
+
+    public void setValid(boolean valid) {
+        isValid = valid;
+    }
+
     public Stock() {
     }
 

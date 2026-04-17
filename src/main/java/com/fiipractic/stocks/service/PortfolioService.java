@@ -45,7 +45,7 @@ public class PortfolioService {
     }
 
     @Transactional
-    public PortfolioDTO createPortfolio(String userId, CreatePortfolioRequest request) {
+    public PortfolioDTO createPortfolio(String userId, CreatePortfolioRequest request, String correlationId) {
         Portfolio portfolio = Portfolio.builder()
                 .name(request.getName())
                 .description(request.getDescription())
@@ -60,6 +60,7 @@ public class PortfolioService {
             MDC.put("userId", userId);
             MDC.put("portfolioId", String.valueOf(portfolio.getId()));
             MDC.put("portfolioName", portfolio.getName());
+            MDC.put("correlationId", correlationId);
             log.info("Created portfolio with ID: {} and Name: {} for user with ID: {}", portfolio.getId(), portfolio.getName(), userId);
         } finally {
             MDC.clear();
@@ -83,7 +84,7 @@ public class PortfolioService {
     }
 
     @Transactional
-    public PortfolioDTO buyStock(String userId, Long portfolioId, BuyStockRequest request) {
+    public PortfolioDTO buyStock(String userId, Long portfolioId, BuyStockRequest request, String correlationId) {
         Portfolio portfolio = portfolioRepository.findById(portfolioId)
                 .filter(p -> p.getUserId().equals(userId))
                 .orElseThrow(() -> new UserNotOwnerOfPortfolioException("User is not owner of portfolio or portfolio does not exist"));
@@ -100,6 +101,19 @@ public class PortfolioService {
 
         portfolioHoldingRepository.save(holding);
         portfolio.getHoldings().add(holding);
+
+        try {
+            MDC.put("action", "bought_stock");
+            MDC.put("portfolioId", String.valueOf(portfolioId));
+            MDC.put("userId", userId);
+            MDC.put("symbol", request.getSymbol());
+            MDC.put("quantity", String.valueOf(request.getQuantity()));
+            MDC.put("purchasePrice", request.getPurchasePrice().toString());
+            MDC.put("correlationId", correlationId);
+            log.info("Bought a stock (symbol: {}) for portfolio: {}", request.getSymbol(), portfolioId);
+        } finally {
+            MDC.clear();
+        }
 
         return toDTO(portfolio);
     }
@@ -155,7 +169,7 @@ public class PortfolioService {
             BigDecimal currentPrice = holdings.getFirst().getStock().getCurrentPrice();
 
             BigDecimal invested = avgPrice.multiply(BigDecimal.valueOf(totalQuantity));
-            BigDecimal currentValue = currentPrice != null ? currentPrice.multiply(BigDecimal.valueOf(totalQuantity)) : invested;
+            BigDecimal currentValue = currentPrice != null ? currentPrice.multiply(BigDecimal.valueOf(totalQuantity)) : BigDecimal.valueOf(0);
             BigDecimal profitLoss = currentValue.subtract(invested);
             BigDecimal plPercent = profitLoss.divide(invested, 4, RoundingMode.HALF_UP).multiply(BigDecimal.valueOf(100));
 

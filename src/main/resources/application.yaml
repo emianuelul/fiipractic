@@ -41,5 +41,8 @@ logbull:
   host: http://localhost:4005
   api-key: ${LOGBULL_API_KEY}
 
+values:
+  price-cache-lifetime-minutes: 5
+
 server:
   port: 8081
