@@ -19,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -206,6 +207,42 @@ public class PortfolioService {
         );
     }
 
+    public List<PortfolioSnapshotDTO> getPortfolioValuationHistory(Long portfolioId) {
+        List<PortfolioSnapshot> portfolioSnapshots =
+                portfolioSnapshotRepository.findAllByPortfolioId(portfolioId).orElse(new ArrayList<>());
+        Portfolio portfolio =
+                portfolioRepository.findById(portfolioId).orElseThrow(() -> new PortfolioNotFoundException("Can't find portfolio with ID: " + portfolioId));
+
+        List<PortfolioSnapshotDTO> snapshotHistory = new ArrayList<>();
+
+        for (var snapshot : portfolioSnapshots) {
+            var snapshotAt = snapshot.getCreatedAt();
+            List<PortfolioHolding> holdings = new ArrayList<>();
+
+            for (var holding : portfolio.getHoldings()) {
+                if (holding.getPurchasedAt().isBefore(snapshotAt)) {
+                    holdings.add(holding);
+                }
+            }
+
+            Portfolio relatedPortfolio = Portfolio.builder()
+                    .id(portfolioId)
+                    .holdings(holdings)
+                    .name(portfolio.getName())
+                    .userId(portfolio.getUserId())
+                    .description(portfolio.getDescription())
+                    .createdAt(portfolio.getCreatedAt())
+                    .updatedAt(portfolio.getUpdatedAt())
+                    .build();
+
+            snapshotHistory.add(toSnapshotDTOWithPortfolio(snapshot, relatedPortfolio));
+        }
+
+        snapshotHistory.sort(Comparator.comparing(PortfolioSnapshotDTO::getCreatedAt));
+
+        return snapshotHistory;
+    }
+
     private PortfolioDTO toDTO(Portfolio p) {
         PortfolioDTO dto = new PortfolioDTO();
         dto.setId(p.getId());
@@ -223,6 +260,30 @@ public class PortfolioService {
                 h.getQuantity(),
                 h.getPurchasePrice(),
                 h.getPurchasedAt()
+        );
+    }
+
+    private PortfolioSnapshotDTO toSnapshotDTO(PortfolioSnapshot p) {
+        return new PortfolioSnapshotDTO(
+                p.getId(),
+                toDTO(p.getPortfolio()),
+                p.getTotalInvested(),
+                p.getCurrentValue(),
+                p.getProfitLoss(),
+                p.getProfitLossPercent(),
+                p.getCreatedAt()
+        );
+    }
+
+    private PortfolioSnapshotDTO toSnapshotDTOWithPortfolio(PortfolioSnapshot p, Portfolio port) {
+        return new PortfolioSnapshotDTO(
+                p.getId(),
+                toDTO(port),
+                p.getTotalInvested(),
+                p.getCurrentValue(),
+                p.getProfitLoss(),
+                p.getProfitLossPercent(),
+                p.getCreatedAt()
         );
     }
 }

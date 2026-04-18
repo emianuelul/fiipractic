@@ -111,4 +111,11 @@ public class PortfolioController {
         );
     }
 
+    @GetMapping("/{portfolioId}/valuationHistory")
+    public ResponseEntity<List<PortfolioSnapshotDTO>> getPortfolioValuationHistory(@PathVariable Long portfolioId) {
+        return ResponseEntity.ok(
+                portfolioService.getPortfolioValuationHistory(portfolioId));
+
+    }
+
 }
