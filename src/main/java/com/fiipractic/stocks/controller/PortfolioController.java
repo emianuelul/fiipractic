@@ -112,9 +112,10 @@ public class PortfolioController {
     }
 
     @GetMapping("/{portfolioId}/valuationHistory")
-    public ResponseEntity<List<PortfolioSnapshotDTO>> getPortfolioValuationHistory(@PathVariable Long portfolioId) {
+    public ResponseEntity<List<PortfolioSnapshotDTO>> getPortfolioValuationHistory(@AuthenticationPrincipal Jwt jwt,
+                                                                                   @PathVariable Long portfolioId) {
         return ResponseEntity.ok(
-                portfolioService.getPortfolioValuationHistory(portfolioId));
+                portfolioService.getPortfolioValuationHistory(jwt.getSubject(), portfolioId));
 
     }
 

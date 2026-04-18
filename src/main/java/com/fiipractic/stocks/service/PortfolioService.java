@@ -207,11 +207,15 @@ public class PortfolioService {
         );
     }
 
-    public List<PortfolioSnapshotDTO> getPortfolioValuationHistory(Long portfolioId) {
+    public List<PortfolioSnapshotDTO> getPortfolioValuationHistory(String userId, Long portfolioId) {
         List<PortfolioSnapshot> portfolioSnapshots =
                 portfolioSnapshotRepository.findAllByPortfolioId(portfolioId).orElse(new ArrayList<>());
         Portfolio portfolio =
                 portfolioRepository.findById(portfolioId).orElseThrow(() -> new PortfolioNotFoundException("Can't find portfolio with ID: " + portfolioId));
+
+        if (!portfolio.getUserId().equals(userId)) {
+            throw new UserNotOwnerOfPortfolioException("Portfolio with ID: " + portfolioId + " doesn't belong to user with ID: " + userId);
+        }
 
         List<PortfolioSnapshotDTO> snapshotHistory = new ArrayList<>();
 
