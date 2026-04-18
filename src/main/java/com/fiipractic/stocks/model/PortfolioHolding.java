@@ -52,23 +52,53 @@ public class PortfolioHolding {
         return new Builder();
     }
 
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+    public Long getId() {
+        return id;
+    }
 
-    public Portfolio getPortfolio() { return portfolio; }
-    public void setPortfolio(Portfolio portfolio) { this.portfolio = portfolio; }
+    public void setId(Long id) {
+        this.id = id;
+    }
 
-    public Stock getStock() { return stock; }
-    public void setStock(Stock stock) { this.stock = stock; }
+    public Portfolio getPortfolio() {
+        return portfolio;
+    }
 
-    public Integer getQuantity() { return quantity; }
-    public void setQuantity(Integer quantity) { this.quantity = quantity; }
+    public void setPortfolio(Portfolio portfolio) {
+        this.portfolio = portfolio;
+    }
 
-    public BigDecimal getPurchasePrice() { return purchasePrice; }
-    public void setPurchasePrice(BigDecimal purchasePrice) { this.purchasePrice = purchasePrice; }
+    public Stock getStock() {
+        return stock;
+    }
 
-    public LocalDateTime getPurchasedAt() { return purchasedAt; }
-    public void setPurchasedAt(LocalDateTime purchasedAt) { this.purchasedAt = purchasedAt; }
+    public void setStock(Stock stock) {
+        this.stock = stock;
+    }
+
+    public Integer getQuantity() {
+        return quantity;
+    }
+
+    public void setQuantity(Integer quantity) {
+        this.quantity = quantity;
+    }
+
+    public BigDecimal getPurchasePrice() {
+        return purchasePrice;
+    }
+
+    public void setPurchasePrice(BigDecimal purchasePrice) {
+        this.purchasePrice = purchasePrice;
+    }
+
+    public LocalDateTime getPurchasedAt() {
+        return purchasedAt;
+    }
+
+    public void setPurchasedAt(LocalDateTime purchasedAt) {
+        this.purchasedAt = purchasedAt;
+    }
 
     @Override
     public boolean equals(Object o) {
@@ -91,12 +121,35 @@ public class PortfolioHolding {
         private BigDecimal purchasePrice;
         private LocalDateTime purchasedAt;
 
-        public Builder id(Long id) { this.id = id; return this; }
-        public Builder portfolio(Portfolio portfolio) { this.portfolio = portfolio; return this; }
-        public Builder stock(Stock stock) { this.stock = stock; return this; }
-        public Builder quantity(Integer quantity) { this.quantity = quantity; return this; }
-        public Builder purchasePrice(BigDecimal purchasePrice) { this.purchasePrice = purchasePrice; return this; }
-        public Builder purchasedAt(LocalDateTime purchasedAt) { this.purchasedAt = purchasedAt; return this; }
+        public Builder id(Long id) {
+            this.id = id;
+            return this;
+        }
+
+        public Builder portfolio(Portfolio portfolio) {
+            this.portfolio = portfolio;
+            return this;
+        }
+
+        public Builder stock(Stock stock) {
+            this.stock = stock;
+            return this;
+        }
+
+        public Builder quantity(Integer quantity) {
+            this.quantity = quantity;
+            return this;
+        }
+
+        public Builder purchasePrice(BigDecimal purchasePrice) {
+            this.purchasePrice = purchasePrice;
+            return this;
+        }
+
+        public Builder purchasedAt(LocalDateTime purchasedAt) {
+            this.purchasedAt = purchasedAt;
+            return this;
+        }
 
         public PortfolioHolding build() {
             return new PortfolioHolding(id, portfolio, stock, quantity, purchasePrice, purchasedAt);

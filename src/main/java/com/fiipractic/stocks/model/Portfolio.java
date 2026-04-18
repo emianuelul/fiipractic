@@ -5,7 +5,6 @@ import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -29,6 +28,9 @@ public class Portfolio {
 
     @OneToMany(mappedBy = "portfolio", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<PortfolioHolding> holdings = new ArrayList<>();
+
+    @OneToMany(mappedBy = "portfolio")
+    private List<PortfolioSnapshot> snapshots;
 
     @CreatedDate
     private LocalDateTime createdAt;

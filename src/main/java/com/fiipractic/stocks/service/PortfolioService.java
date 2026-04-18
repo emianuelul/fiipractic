@@ -5,23 +5,22 @@ import com.fiipractic.stocks.exception.PortfolioNotFoundException;
 import com.fiipractic.stocks.exception.UserNotOwnerOfPortfolioException;
 import com.fiipractic.stocks.model.Portfolio;
 import com.fiipractic.stocks.model.PortfolioHolding;
+import com.fiipractic.stocks.model.PortfolioSnapshot;
 import com.fiipractic.stocks.model.Stock;
 import com.fiipractic.stocks.repository.PortfolioHoldingRepository;
 import com.fiipractic.stocks.repository.PortfolioRepository;
-
-import org.slf4j.MDC;
-import org.slf4j.LoggerFactory;
+import com.fiipractic.stocks.repository.PortfolioSnapshotRepository;
 import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -29,6 +28,7 @@ public class PortfolioService {
 
     private final PortfolioRepository portfolioRepository;
     private final PortfolioHoldingRepository portfolioHoldingRepository;
+    private final PortfolioSnapshotRepository portfolioSnapshotRepository;
     private final StockService stockService;
     private final PriceRefreshPublisher priceRefreshPublisher;
 
@@ -37,11 +37,13 @@ public class PortfolioService {
     public PortfolioService(PortfolioRepository portfolioRepository,
                             PortfolioHoldingRepository portfolioHoldingRepository,
                             StockService stockService,
-                            PriceRefreshPublisher priceRefreshPublisher) {
+                            PriceRefreshPublisher priceRefreshPublisher,
+                            PortfolioSnapshotRepository portfolioSnapshotRepository) {
         this.portfolioRepository = portfolioRepository;
         this.portfolioHoldingRepository = portfolioHoldingRepository;
         this.stockService = stockService;
         this.priceRefreshPublisher = priceRefreshPublisher;
+        this.portfolioSnapshotRepository = portfolioSnapshotRepository;
     }
 
     @Transactional
@@ -141,7 +143,8 @@ public class PortfolioService {
         );
     }
 
-    public PortfolioValuationDTO calculateValuation(String userId, Long portfolioId) {
+    @Transactional
+    public PortfolioSnapshotDTO calculateValuation(String userId, Long portfolioId) {
         Portfolio portfolio = portfolioRepository.findById(portfolioId).orElseThrow(() -> new PortfolioNotFoundException("Can't find portfolio with ID: " + portfolioId));
         if (!portfolio.getUserId().equals(userId)) {
             throw new UserNotOwnerOfPortfolioException("Portfolio with ID: " + portfolioId + " doesn't belong to user with ID: " + userId);
@@ -181,13 +184,26 @@ public class PortfolioService {
         BigDecimal totalProfitLoss = totalCurrentValue.subtract(totalInvested);
         BigDecimal totalProfitLossPercent = totalProfitLoss.divide(totalInvested, 4, RoundingMode.HALF_UP).multiply(BigDecimal.valueOf(100));
 
-        return new PortfolioValuationDTO(
-                portfolio.getId(), portfolio.getName(),
-                totalInvested, totalCurrentValue,
-                totalProfitLoss, totalProfitLossPercent,
-                positions, LocalDateTime.now()
-        );
+        PortfolioSnapshot portfolioSnapshot =
+                PortfolioSnapshot.builder()
+                        .portfolio(portfolio)
+                        .currentValue(totalCurrentValue)
+                        .totalInvested(totalInvested)
+                        .profitLoss(totalProfitLoss)
+                        .profitLossPercent(totalProfitLossPercent)
+                        .build();
 
+        portfolioSnapshotRepository.save(portfolioSnapshot);
+
+        return new PortfolioSnapshotDTO(
+                portfolioSnapshot.getId(),
+                toDTO(portfolio),
+                totalInvested,
+                totalCurrentValue,
+                totalProfitLoss,
+                totalProfitLossPercent,
+                portfolioSnapshot.getCreatedAt()
+        );
     }
 
     private PortfolioDTO toDTO(Portfolio p) {

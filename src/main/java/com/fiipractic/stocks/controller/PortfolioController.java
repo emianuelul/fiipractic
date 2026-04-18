@@ -2,19 +2,16 @@ package com.fiipractic.stocks.controller;
 
 import com.fiipractic.stocks.dto.*;
 import com.fiipractic.stocks.service.PortfolioService;
-
 import jakarta.validation.Valid;
-
-import org.slf4j.MDC;
-import org.slf4j.LoggerFactory;
 import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
-
 
 import java.util.List;
 import java.util.UUID;
@@ -106,7 +103,7 @@ public class PortfolioController {
     }
 
     @GetMapping("/{portfolioId}/valuation")
-    public ResponseEntity<PortfolioValuationDTO> getPortfolioValuation(
+    public ResponseEntity<PortfolioSnapshotDTO> getPortfolioValuation(
             @AuthenticationPrincipal Jwt jwt,
             @PathVariable Long portfolioId) {
         return ResponseEntity.ok(

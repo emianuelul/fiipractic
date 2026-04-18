@@ -2,7 +2,6 @@ package com.fiipractic.stocks.consumer;
 
 import com.fiipractic.stocks.config.RabbitMQConfig;
 import com.fiipractic.stocks.dto.PriceRefreshMessage;
-import com.fiipractic.stocks.exception.InvalidSymbolException;
 import com.fiipractic.stocks.exception.StockNotFoundException;
 import com.fiipractic.stocks.model.Stock;
 import com.fiipractic.stocks.repository.StockRepository;
@@ -10,16 +9,15 @@ import com.fiipractic.stocks.service.AlphaVantageClient;
 import com.rabbitmq.client.Channel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.amqp.support.AmqpHeaders;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.stereotype.Component;
-import org.slf4j.MDC;
 
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Component
@@ -77,63 +75,63 @@ public class PriceRefreshConsumer {
 
             BigDecimal price;
 
-            if (stock.isValid()) {
-                boolean expired =
-                        stock.getLastPriceUpdate() == null
-                                || stock.getLastPriceUpdate().isBefore(LocalDateTime.now().minusMinutes(cacheLifetimeMinutes));
-
-                if (expired) {
-                    price = alphaVantageClient.fetchLatestPrice(message.symbol());
-                } else {
-                    price = stock.getCurrentPrice();
-                    try {
-                        MDC.put("action", "price_cache_hit");
-                        MDC.put("symbol", message.symbol());
-                        MDC.put("correlationId", correlationId);
-                        log.info("Price for {} is recent, skipping Alpha Vantage call", message.symbol());
-                    } finally {
-                        MDC.clear();
-                    }
-                }
-
-                stock.setCurrentPrice(price);
-                stock.setLastPriceUpdate(LocalDateTime.now());
-
-                stockRepository.save(stock);
-
-                log.info("Successfully Refreshed " + message.symbol() + " Stock " + "Price");
-
-                long durationMs = System.currentTimeMillis() - startTime;
+            if (!stock.isValid()) {
+                log.info("Symbol {} is already marked as invalid, acknowledging without processing", message.symbol());
                 channel.basicAck(deliveryTag, false);
+                return;
+            }
 
+            boolean expired =
+                    stock.getLastPriceUpdate() == null
+                            || stock.getLastPriceUpdate().isBefore(LocalDateTime.now().minusMinutes(cacheLifetimeMinutes));
+
+            if (expired) {
+                price = alphaVantageClient.fetchLatestPrice(message.symbol());
+            } else {
+                price = stock.getCurrentPrice();
                 try {
-                    MDC.put("action", "price_stored");
+                    MDC.put("action", "price_cache_hit");
                     MDC.put("symbol", message.symbol());
-                    MDC.put("price", price.toString());
-                    MDC.put("durationMs", String.valueOf(durationMs));
-                    MDC.put("requestedBy", message.requestedBy());
                     MDC.put("correlationId", correlationId);
-                    log.info("Price updated for {}: ${}", message.symbol(), price);
+                    log.info("Price for {} is recent, skipping Alpha Vantage call", message.symbol());
                 } finally {
                     MDC.clear();
                 }
+            }
 
-                if (durationMs > SLOW_API_THRESHOLD_MS) {
-                    try {
-                        MDC.put("action", "slow_api_call");
-                        MDC.put("symbol", message.symbol());
-                        MDC.put("durationMs", String.valueOf(durationMs));
-                        MDC.put("thresholdMs", String.valueOf(SLOW_API_THRESHOLD_MS));
-                        MDC.put("correlationId", correlationId);
-                        log.warn("Slow API call for {} took {}ms", message.symbol(), durationMs);
-                    } finally {
-                        MDC.clear();
-                    }
+            stock.setCurrentPrice(price);
+            stock.setLastPriceUpdate(LocalDateTime.now());
+
+            stockRepository.save(stock);
+
+            log.info("Successfully Refreshed " + message.symbol() + " Stock " + "Price");
+
+            long durationMs = System.currentTimeMillis() - startTime;
+            channel.basicAck(deliveryTag, false);
+
+            try {
+                MDC.put("action", "price_stored");
+                MDC.put("symbol", message.symbol());
+                MDC.put("price", price.toString());
+                MDC.put("durationMs", String.valueOf(durationMs));
+                MDC.put("requestedBy", message.requestedBy());
+                MDC.put("correlationId", correlationId);
+                log.info("Price updated for {}: ${}", message.symbol(), price);
+            } finally {
+                MDC.clear();
+            }
+
+            if (durationMs > SLOW_API_THRESHOLD_MS) {
+                try {
+                    MDC.put("action", "slow_api_call");
+                    MDC.put("symbol", message.symbol());
+                    MDC.put("durationMs", String.valueOf(durationMs));
+                    MDC.put("thresholdMs", String.valueOf(SLOW_API_THRESHOLD_MS));
+                    MDC.put("correlationId", correlationId);
+                    log.warn("Slow API call for {} took {}ms", message.symbol(), durationMs);
+                } finally {
+                    MDC.clear();
                 }
-            } else {
-                log.info("Symbol {} is already marked as valid, acknowledging without processing", message.symbol());
-                channel.basicAck(deliveryTag, false);
-                return;
             }
 
         } catch (Exception e) {
